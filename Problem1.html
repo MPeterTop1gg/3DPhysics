@@ -41,6 +41,10 @@
             font-size: 16px;
             border: 1px solid rgba(255, 255, 255, 0.5);
         }
+        #scenario-buttons button {
+            cursor: pointer;
+            margin: 2px;
+        }
         h2 {
             margin-top: 0;
             color: #87CEEB; /* Sky Blue */
@@ -80,25 +84,40 @@
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
         let camera, scene, renderer, labelRenderer, controls;
-        let box, planeGroup;
+        let planeGroup;
         let Fg, Fn, Ftr;
         let FgLabel, FnLabel, FtrLabel;
         const clock = new THREE.Clock();
 
         // --- ПАРАМЕТРЫ ФИЗИКИ ---
-        const mass = 4; // кг
-        const frictionCoeff = 0.1;
         const g = 10; // м/с^2
         const angleDegrees = 30;
         const angleRadians = angleDegrees * THREE.MathUtils.DEG2RAD;
         const rampLength = 250;
+        const rampEndX = rampLength / 2;
+        const startPositionX = -rampEndX + 5; // Старт чуть ниже верхнего края наклона
+        const arrowLengthScale = 0.8;
 
-        // Расчет сил
-        const Fg_val = mass * g; // Сила тяжести
-        const FN_val = Fg_val * Math.cos(angleRadians); // Сила реакции опоры
-        const Ftr_val = frictionCoeff * FN_val; // Сила трения
-        const Fskat_val = Fg_val * Math.sin(angleRadians); // Скатывающая сила
-        const acceleration = (Fskat_val - Ftr_val) / mass; // Ускорение
+        let frictionCoeff = 0.1;
+        let boxes = [];
+        let masses = [];
+        let velocities = [];
+
+        const scenarios = [
+            { name: 'Сценарий 1: один блок', friction: 0.1, objects: [{ mass: 4 }] },
+            { name: 'Сценарий 2: шесть блоков', friction: 0.1, objects: [
+                { mass: 4 }, { mass: 2 }, { mass: 3 }, { mass: 1.5 }, { mass: 2.5 }, { mass: 3.5 }
+            ] },
+            { name: 'Сценарий 3: три блока, μ=0.05', friction: 0.05, objects: [
+                { mass: 2 }, { mass: 4 }, { mass: 3 }
+            ] },
+            { name: 'Сценарий 4: четыре блока, μ=0.2', friction: 0.2, objects: [
+                { mass: 1 }, { mass: 2 }, { mass: 1.5 }, { mass: 3 }
+            ] },
+            { name: 'Сценарий 5: два блока, μ=0.15', friction: 0.15, objects: [
+                { mass: 2 }, { mass: 5 }
+            ] }
+        ];
 
         // Отобразить формулу ускорения через KaTeX
         const formulaEl = document.getElementById('acceleration-formula');
@@ -110,11 +129,7 @@
             }
         }
 
-        let velocity = 0;
-        const rampEndX = rampLength / 2;
-        const startPositionX = -rampEndX + 5; // Старт чуть ниже верхнего края наклона
-        let onRamp = true;
-        const arrowLengthScale = 0.8;
+        
 
         function init() {
             // Сцена
@@ -195,45 +210,17 @@
             planeGroup.position.set(-rampEndX * Math.cos(angleRadians), rampEndX * Math.sin(angleRadians), 0);
             scene.add(planeGroup);
 
-            // Груз
-            const boxGeometry = new THREE.BoxGeometry(10, 10, 10);
-            const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.5, metalness: 0.1 });
-            box = new THREE.Mesh(boxGeometry, boxMaterial);
-            box.castShadow = true;
-            box.position.set(startPositionX, 6.1, 0); // Ставим в начальную позицию чуть выше плоскости
-            planeGroup.add(box);
-            
-            // Наклонная поверхность под грузом
+            // Наклонная поверхность
             const rampGeometry = new THREE.BoxGeometry(rampLength, 2, 30);
             const rampMaterial = new THREE.MeshStandardMaterial({ color: 0x966F33, roughness: 0.8 });
             const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
             ramp.receiveShadow = true;
             planeGroup.add(ramp);
-            
-            camera.lookAt(box.getWorldPosition(new THREE.Vector3()));
-            controls.target.copy(box.getWorldPosition(new THREE.Vector3()));
+            camera.lookAt(planeGroup.position);
+            controls.target.copy(planeGroup.position);
 
-            // --- СИЛЫ ---
-            const forceOrigin = new THREE.Vector3(0, 5, 0);
-
-            // 1. Сила тяжести (Fg) - желтая
-            Fg = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), forceOrigin, Fg_val * arrowLengthScale, 0xffff00, 6, 4);
-            box.add(Fg);
-            FgLabel = addLabel(Fg, '');
-            
-            // 2. Сила реакции опоры (Fn) - синяя
-            const FnDir = new THREE.Vector3(0, 1, 0);
-            Fn = new THREE.ArrowHelper(FnDir, forceOrigin, FN_val * arrowLengthScale, 0x0000ff, 6, 4);
-            box.add(Fn);
-            FnLabel = addLabel(Fn, '');
-
-            // 3. Сила трения (Fтр) - красная
-            const FtrDir = new THREE.Vector3(-1, 0, 0); // Против движения (движемся в +Х, значит трение в -Х)
-            Ftr = new THREE.ArrowHelper(FtrDir, forceOrigin, Ftr_val * arrowLengthScale, 0xff0000, 6, 4);
-            box.add(Ftr);
-            FtrLabel = addLabel(Ftr, '');
-
-            updateForces();
+            createScenarioButtons();
+            loadScenario(0);
 
             window.addEventListener('resize', onWindowResize);
         }
@@ -277,6 +264,81 @@
             scene.add(rock);
         }
 
+        function createScenarioButtons() {
+            const container = document.createElement('div');
+            container.id = 'scenario-buttons';
+            scenarios.forEach((sc, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'label';
+                btn.textContent = sc.name;
+                btn.style.margin = '2px';
+                btn.onclick = () => loadScenario(idx);
+                container.appendChild(btn);
+            });
+            document.getElementById('info').appendChild(container);
+        }
+
+        function loadScenario(index) {
+            boxes.forEach(b => planeGroup.remove(b));
+            boxes = [];
+            masses = [];
+            velocities = [];
+
+            if (Fg) {
+                Fg.parent.remove(Fg);
+                Fn.parent.remove(Fn);
+                Ftr.parent.remove(Ftr);
+                Fg = Fn = Ftr = null;
+            }
+
+            const sc = scenarios[index];
+            frictionCoeff = sc.friction;
+
+            sc.objects.forEach((obj, i) => {
+                const geom = new THREE.BoxGeometry(10, 10, 10);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.5, metalness: 0.1 });
+                const box = new THREE.Mesh(geom, mat);
+                box.castShadow = true;
+                const spacing = 15;
+                box.position.set(startPositionX - i * spacing, 6.1, 0);
+                planeGroup.add(box);
+
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'label';
+                labelDiv.textContent = `m=${obj.mass}`;
+                const massLabel = new CSS2DObject(labelDiv);
+                massLabel.position.set(0, 8, 0);
+                box.add(massLabel);
+
+                boxes.push(box);
+                masses.push(obj.mass);
+                velocities.push(0);
+            });
+
+            if (boxes.length) {
+                createForceArrows(boxes[0]);
+            }
+        }
+
+        function createForceArrows(targetBox) {
+            const forceOrigin = new THREE.Vector3(0, 5, 0);
+            Fg = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), forceOrigin, 0, 0xffff00, 6, 4);
+            targetBox.add(Fg);
+            FgLabel = addLabel(Fg, '');
+
+            const FnDir = new THREE.Vector3(0, 1, 0);
+            Fn = new THREE.ArrowHelper(FnDir, forceOrigin, 0, 0x0000ff, 6, 4);
+            targetBox.add(Fn);
+            FnLabel = addLabel(Fn, '');
+
+            const FtrDir = new THREE.Vector3(-1, 0, 0);
+            Ftr = new THREE.ArrowHelper(FtrDir, forceOrigin, 0, 0xff0000, 6, 4);
+            targetBox.add(Ftr);
+            FtrLabel = addLabel(Ftr, '');
+
+            updateForces();
+        }
+
         function addLabel(arrow, text) {
             const labelDiv = document.createElement('div');
             labelDiv.className = 'label';
@@ -298,15 +360,11 @@
         }
 
         function updateForces() {
+            if (!boxes.length || !Fg) return;
+            const mass = masses[0];
             const FgCurrent = mass * g;
-            let FnCurrent = FgCurrent;
-            if (onRamp) {
-                FnCurrent = FgCurrent * Math.cos(angleRadians);
-            }
-            let FtrCurrent = frictionCoeff * FnCurrent;
-            if (!onRamp && velocity === 0) {
-                FtrCurrent = 0;
-            }
+            const FnCurrent = FgCurrent * Math.cos(angleRadians);
+            const FtrCurrent = frictionCoeff * FnCurrent;
 
             Fg.setLength(FgCurrent * arrowLengthScale, 6, 4);
             Fn.setLength(FnCurrent * arrowLengthScale, 6, 4);
@@ -333,31 +391,35 @@
 
             const delta = clock.getDelta();
 
-            if (onRamp) {
-                const scaled_acceleration = acceleration * 10;
-                velocity += scaled_acceleration * delta;
-                box.position.x += velocity * delta;
+            const baseAcc = g * Math.sin(angleRadians);
+            const fricAcc = frictionCoeff * g * Math.cos(angleRadians);
 
-                if (box.position.x >= rampEndX) {
-                    const worldPos = box.getWorldPosition(new THREE.Vector3());
-                    planeGroup.remove(box);
-                    scene.add(box);
-                    box.position.copy(worldPos);
-                    box.position.y = 6.1;
-                    velocity *= Math.cos(angleRadians);
-                    onRamp = false;
-                }
-            } else {
-                const groundAcc = -frictionCoeff * g * 10;
-                velocity += groundAcc * delta;
-                if (velocity < 0) velocity = 0;
-                box.position.x += velocity * delta;
+            for (let i = 0; i < boxes.length; i++) {
+                const sign = velocities[i] >= 0 ? 1 : -1;
+                const acc = baseAcc - sign * fricAcc;
+                velocities[i] += acc * delta;
+                boxes[i].position.x += velocities[i] * delta;
+            }
 
-                if (velocity === 0 && box.position.x > 200) {
-                    box.position.set(startPositionX, 6.1, 0);
-                    planeGroup.add(box);
-                    velocity = 0;
-                    onRamp = true;
+            for (let i = 0; i < boxes.length; i++) {
+                for (let j = i + 1; j < boxes.length; j++) {
+                    const dx = boxes[i].position.x - boxes[j].position.x;
+                    if (Math.abs(dx) < 10) {
+                        const m1 = masses[i], m2 = masses[j];
+                        const u1 = velocities[i], u2 = velocities[j];
+                        const v1 = ((m1 - m2) / (m1 + m2)) * u1 + (2 * m2 / (m1 + m2)) * u2;
+                        const v2 = (2 * m1 / (m1 + m2)) * u1 + ((m2 - m1) / (m1 + m2)) * u2;
+                        velocities[i] = v1;
+                        velocities[j] = v2;
+                        const overlap = 10 - Math.abs(dx);
+                        if (dx > 0) {
+                            boxes[i].position.x += overlap / 2;
+                            boxes[j].position.x -= overlap / 2;
+                        } else {
+                            boxes[i].position.x -= overlap / 2;
+                            boxes[j].position.x += overlap / 2;
+                        }
+                    }
                 }
             }
 
