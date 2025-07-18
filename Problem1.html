@@ -117,6 +117,7 @@
         const g = 10; // м/с^2
         const angleDegrees = 30;
         const angleRadians = angleDegrees * THREE.MathUtils.DEG2RAD;
+        const rampLength = 250;
 
         // Расчет сил
         const Fg_val = mass * g; // Сила тяжести
@@ -126,7 +127,9 @@
         const acceleration = (Fskat_val - Ftr_val) / mass; // Ускорение
 
         let velocity = 0;
-        const startPositionX = -80; // Начальная позиция груза на склоне (вверху)
+        const startPositionX = -rampEndX + 5; // Старт чуть ниже верхнего края наклона
+        const rampEndX = rampLength / 2;
+        let onRamp = true;
 
         function init() {
             // Сцена
@@ -204,6 +207,7 @@
             // --- ОСНОВНЫЕ ОБЪЕКТЫ ЗАДАЧИ ---
             planeGroup = new THREE.Group();
             planeGroup.rotation.z = -angleRadians; // Поворот всей группы, чтобы создать наклон
+            planeGroup.position.set(-rampEndX * Math.cos(angleRadians), rampEndX * Math.sin(angleRadians), 0);
             scene.add(planeGroup);
 
             // Груз
@@ -215,7 +219,7 @@
             planeGroup.add(box);
             
             // Наклонная поверхность под грузом
-            const rampGeometry = new THREE.BoxGeometry(250, 2, 30);
+            const rampGeometry = new THREE.BoxGeometry(rampLength, 2, 30);
             const rampMaterial = new THREE.MeshStandardMaterial({ color: 0x966F33, roughness: 0.8 });
             const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
             ramp.receiveShadow = true;
@@ -311,19 +315,34 @@
 
             const delta = clock.getDelta();
 
-            // --- АНИМАЦИЯ ДВИЖЕНИЯ ГРУЗА ---
-            const scaled_acceleration = acceleration * 10; 
-            velocity += scaled_acceleration * delta;
-            
-            // ИСПРАВЛЕНО: Движение в сторону +X (вниз по склону)
-            box.position.x += velocity * delta;
-            
-            // ИСПРАВЛЕНО: Сброс, если груз уехал вниз
-            if (box.position.x > 100) {
-                box.position.x = startPositionX;
-                velocity = 0;
+            if (onRamp) {
+                const scaled_acceleration = acceleration * 10;
+                velocity += scaled_acceleration * delta;
+                box.position.x += velocity * delta;
+
+                if (box.position.x >= rampEndX) {
+                    const worldPos = box.getWorldPosition(new THREE.Vector3());
+                    planeGroup.remove(box);
+                    scene.add(box);
+                    box.position.copy(worldPos);
+                    box.position.y = 5.1;
+                    velocity *= Math.cos(angleRadians);
+                    onRamp = false;
+                }
+            } else {
+                const groundAcc = -frictionCoeff * g * 10;
+                velocity += groundAcc * delta;
+                if (velocity < 0) velocity = 0;
+                box.position.x += velocity * delta;
+
+                if (velocity === 0 && box.position.x > 200) {
+                    box.position.set(startPositionX, 5.1, 0);
+                    planeGroup.add(box);
+                    velocity = 0;
+                    onRamp = true;
+                }
             }
-            
+
             controls.update();
             renderer.render(scene, camera);
             labelRenderer.render(scene, camera);
