@@ -81,6 +81,8 @@
 
         let camera, scene, renderer, labelRenderer, controls;
         let box, planeGroup;
+        let Fg, Fn, Ftr;
+        let FgLabel, FnLabel, FtrLabel;
         const clock = new THREE.Clock();
 
         // --- ПАРАМЕТРЫ ФИЗИКИ ---
@@ -112,6 +114,7 @@
         const rampEndX = rampLength / 2;
         const startPositionX = -rampEndX + 5; // Старт чуть ниже верхнего края наклона
         let onRamp = true;
+        const arrowLengthScale = 0.8;
 
         function init() {
             // Сцена
@@ -212,25 +215,26 @@
 
             // --- СИЛЫ ---
             const forceOrigin = new THREE.Vector3(0, 5, 0);
-            const arrowLengthScale = 0.8;
 
             // 1. Сила тяжести (Fg) - желтая
-            const Fg = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), forceOrigin, Fg_val * arrowLengthScale, 0xffff00, 6, 4);
+            Fg = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), forceOrigin, Fg_val * arrowLengthScale, 0xffff00, 6, 4);
             box.add(Fg);
-            addLabel(Fg, 'F_g');
+            FgLabel = addLabel(Fg, '');
             
             // 2. Сила реакции опоры (Fn) - синяя
             const FnDir = new THREE.Vector3(0, 1, 0);
-            const Fn = new THREE.ArrowHelper(FnDir, forceOrigin, FN_val * arrowLengthScale, 0x0000ff, 6, 4);
+            Fn = new THREE.ArrowHelper(FnDir, forceOrigin, FN_val * arrowLengthScale, 0x0000ff, 6, 4);
             box.add(Fn);
-            addLabel(Fn, 'F_N');
+            FnLabel = addLabel(Fn, '');
 
             // 3. Сила трения (Fтр) - красная
             const FtrDir = new THREE.Vector3(-1, 0, 0); // Против движения (движемся в +Х, значит трение в -Х)
-            const Ftr = new THREE.ArrowHelper(FtrDir, forceOrigin, Ftr_val * arrowLengthScale, 0xff0000, 6, 4);
+            Ftr = new THREE.ArrowHelper(FtrDir, forceOrigin, Ftr_val * arrowLengthScale, 0xff0000, 6, 4);
             box.add(Ftr);
-            addLabel(Ftr, 'F_{тр}');
-            
+            FtrLabel = addLabel(Ftr, '');
+
+            updateForces();
+
             window.addEventListener('resize', onWindowResize);
         }
 
@@ -276,17 +280,45 @@
         function addLabel(arrow, text) {
             const labelDiv = document.createElement('div');
             labelDiv.className = 'label';
-            if (window.katex) {
-                window.katex.render(text, labelDiv, { throwOnError: false });
-            } else {
-                labelDiv.textContent = text;
-            }
+            labelDiv.textContent = text;
             const label = new CSS2DObject(labelDiv);
-            const endOfArrow = new THREE.Vector3(0, 0, 0); // Начало стрелки в локальных координатах
-            endOfArrow.add(arrow.line.position); // Позиция линии
-            endOfArrow.add(arrow.cone.position); // Позиция конуса
+            const endOfArrow = new THREE.Vector3();
+            endOfArrow.add(arrow.line.position);
+            endOfArrow.add(arrow.cone.position);
             label.position.copy(endOfArrow).multiplyScalar(1.2);
             arrow.add(label);
+            return label;
+        }
+
+        function updateLabelPosition(arrow, label) {
+            const endOfArrow = new THREE.Vector3();
+            endOfArrow.add(arrow.line.position);
+            endOfArrow.add(arrow.cone.position);
+            label.position.copy(endOfArrow).multiplyScalar(1.2);
+        }
+
+        function updateForces() {
+            const FgCurrent = mass * g;
+            let FnCurrent = FgCurrent;
+            if (onRamp) {
+                FnCurrent = FgCurrent * Math.cos(angleRadians);
+            }
+            let FtrCurrent = frictionCoeff * FnCurrent;
+            if (!onRamp && velocity === 0) {
+                FtrCurrent = 0;
+            }
+
+            Fg.setLength(FgCurrent * arrowLengthScale, 6, 4);
+            Fn.setLength(FnCurrent * arrowLengthScale, 6, 4);
+            Ftr.setLength(FtrCurrent * arrowLengthScale, 6, 4);
+
+            FgLabel.element.textContent = `F_g = ${FgCurrent.toFixed(1)} Н`;
+            FnLabel.element.textContent = `F_N = ${FnCurrent.toFixed(1)} Н`;
+            FtrLabel.element.textContent = `F_тр = ${FtrCurrent.toFixed(1)} Н`;
+
+            updateLabelPosition(Fg, FgLabel);
+            updateLabelPosition(Fn, FnLabel);
+            updateLabelPosition(Ftr, FtrLabel);
         }
 
         function onWindowResize() {
@@ -328,6 +360,8 @@
                     onRamp = true;
                 }
             }
+
+            updateForces();
 
             controls.update();
             renderer.render(scene, camera);
