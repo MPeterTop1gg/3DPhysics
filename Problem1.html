@@ -62,8 +62,20 @@
             width: 380px;
             border: 1px solid #87CEEB;
         }
+        #stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        #stats-table td, #stats-table th {
+            border: 1px solid #87CEEB;
+            padding: 4px 6px;
+        }
+        #stats-table th {
+            background: rgba(135, 206, 235, 0.3);
+        }
         /* Стили для KaTeX */
-        .katex { 
+        .katex {
             font-size: 1.1em;
         }
     </style>
@@ -91,6 +103,14 @@
             Ускорение ($a$) находим по второму закону Ньютона:<br>
             $a = \frac{F_{\text{скат}} - F_{тр}}{m} = \frac{20 - 3.46}{4} \approx \textbf{4.135 м/с²}$
         </p>
+        <h3>Статистика приложения</h3>
+        <table id="stats-table">
+            <tr><th>Параметр</th><th>Значение</th></tr>
+            <tr><td>Масса ($m$)</td><td>4 кг</td></tr>
+            <tr><td>Угол ($\theta$)</td><td>30°</td></tr>
+            <tr><td>Коэффициент трения ($\mu$)</td><td>0.1</td></tr>
+            <tr><td>Формула ускорения</td><td>$$a = \frac{F_{\text{скат}} - F_{тр}}{m}$$</td></tr>
+        </table>
     </div>
 
     <script type="importmap">
