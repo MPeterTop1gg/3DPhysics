@@ -109,7 +109,7 @@
             <tr><td>Масса ($m$)</td><td>4 кг</td></tr>
             <tr><td>Угол ($\theta$)</td><td>30°</td></tr>
             <tr><td>Коэффициент трения ($\mu$)</td><td>0.1</td></tr>
-            <tr><td>Формула ускорения</td><td>$$a = \frac{F_{\text{скат}} - F_{тр}}{m}$$</td></tr>
+            <tr><td>Формула ускорения</td><td id="acceleration-formula"></td></tr>
         </table>
     </div>
 
@@ -145,6 +145,16 @@
         const Ftr_val = frictionCoeff * FN_val; // Сила трения
         const Fskat_val = Fg_val * Math.sin(angleRadians); // Скатывающая сила
         const acceleration = (Fskat_val - Ftr_val) / mass; // Ускорение
+
+        // Отобразить формулу ускорения через KaTeX
+        const formulaEl = document.getElementById('acceleration-formula');
+        if (formulaEl) {
+            if (window.katex) {
+                window.katex.render('a = \\frac{F_{\\text{скат}} - F_{тр}}{m}', formulaEl, { displayMode: true, throwOnError: false });
+            } else {
+                formulaEl.textContent = 'a = (F_скат - F_тр) / m';
+            }
+        }
 
         let velocity = 0;
         const rampEndX = rampLength / 2;
