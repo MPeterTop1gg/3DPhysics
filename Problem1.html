@@ -314,7 +314,11 @@
         function addLabel(arrow, text) {
             const labelDiv = document.createElement('div');
             labelDiv.className = 'label';
-            labelDiv.innerHTML = '$$' + text + '$$'; // Оборачиваем в $$ для рендеринга KaTeX
+            if (window.katex) {
+                window.katex.render(text, labelDiv, { throwOnError: false });
+            } else {
+                labelDiv.textContent = text;
+            }
             const label = new CSS2DObject(labelDiv);
             const endOfArrow = new THREE.Vector3(0, 0, 0); // Начало стрелки в локальных координатах
             endOfArrow.add(arrow.line.position); // Позиция линии
