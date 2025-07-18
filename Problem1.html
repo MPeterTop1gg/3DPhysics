@@ -52,16 +52,6 @@
         strong {
             color: #90EE90; /* Light Green */
         }
-        #solution {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 20px;
-            border-radius: 15px;
-            width: 380px;
-            border: 1px solid #87CEEB;
-        }
         /* Стили для KaTeX */
         .katex {
             font-size: 1.1em;
@@ -74,24 +64,6 @@
         Крутите камеру левой кнопкой мыши, приближайте колесиком, перемещайте правой кнопкой.
     </div>
 
-    <div id="solution">
-        <h2>Задача по физике 🏔️</h2>
-        <p>
-            Груз массой <strong>4 кг</strong> скользит вниз по наклонной плоскости с углом наклона <strong>30°</strong>. Коэффициент трения между грузом и плоскостью — <strong>0,1</strong>. Определить ускорение груза (g = 10 м/с²).
-        </p>
-        <hr>
-        <h3>Решение и действующие силы:</h3>
-        <p>
-            1. <strong>Сила тяжести ($F_g$)</strong>: $m \cdot g = 4 \cdot 10 = 40 \text{ Н}$<br>
-            2. <strong>Сила реакции опоры ($F_N$)</strong>: $F_g \cdot \cos(30^\circ) \approx 34.64 \text{ Н}$<br>
-            3. <strong>Сила трения ($F_{тр}$)</strong>: $\mu \cdot F_N = 0.1 \cdot 34.64 \approx 3.46 \text{ Н}$<br>
-            4. <strong>Скатывающая сила ($F_{\text{скат}}$)</strong>: $F_g \cdot \sin(30^\circ) = 40 \cdot 0.5 = 20 \text{ Н}$
-        </p>
-        <p>
-            Ускорение ($a$) находим по второму закону Ньютона:<br>
-            $a = \frac{F_{\text{скат}} - F_{тр}}{m} = \frac{20 - 3.46}{4} \approx \textbf{4.135 м/с²}$
-        </p>
-    </div>
 
     <script type="importmap">
         {
@@ -225,7 +197,7 @@
             const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.5, metalness: 0.1 });
             box = new THREE.Mesh(boxGeometry, boxMaterial);
             box.castShadow = true;
-            box.position.set(startPositionX, 5.1, 0); // Ставим в начальную позицию
+            box.position.set(startPositionX, 6.1, 0); // Ставим в начальную позицию чуть выше плоскости
             planeGroup.add(box);
             
             // Наклонная поверхность под грузом
@@ -339,7 +311,7 @@
                     planeGroup.remove(box);
                     scene.add(box);
                     box.position.copy(worldPos);
-                    box.position.y = 5.1;
+                    box.position.y = 6.1;
                     velocity *= Math.cos(angleRadians);
                     onRamp = false;
                 }
@@ -350,7 +322,7 @@
                 box.position.x += velocity * delta;
 
                 if (velocity === 0 && box.position.x > 200) {
-                    box.position.set(startPositionX, 5.1, 0);
+                    box.position.set(startPositionX, 6.1, 0);
                     planeGroup.add(box);
                     velocity = 0;
                     onRamp = true;
